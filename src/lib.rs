@@ -16,6 +16,7 @@ impl<T: Float + Zero + From<f32>> Matrix<T> {
     pub fn new(val: f32, n: usize, m:usize) -> Matrix<T> {
         Matrix { n , m , data: vec![<T as From<f32>>::from(val); n * m] }
     }
+
     pub fn zeros(n: usize, m:usize) -> Matrix<T> {
         Matrix { n , m , data: vec![<T as From<f32>>::from(0_f32); n * m] }
     }
@@ -45,6 +46,26 @@ impl<T: Float + Zero + From<f32>> Matrix<T> {
                                            .collect::<Vec<Vec<T>>>();
         
         Matrix::from(data)
+    }
+
+    pub fn exp(&mut self) -> Matrix<T> {
+
+        let data: Vec<T> = self.data.iter()
+                               .map(|x| x.exp())
+                               .collect::<Vec<T>>();
+        
+        Matrix { n:self.n , m:self.m , data }
+        
+    }
+
+    pub fn one_over(&self) -> Matrix<T> {
+
+        let data: Vec<T> = self.data.iter()
+                               .map(|x| T::one() / *x)
+                               .collect::<Vec<T>>();
+        
+        Matrix { n:self.n , m:self.m , data }
+
     }
 }
 
@@ -87,6 +108,38 @@ impl<T: Float + Zero + From<f32> + fmt::Display + ops::Add> ops::Add<Matrix<T>> 
 
        mat
     }
+}
+
+impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mul<T> for Matrix<T> {
+
+    type Output = Matrix<T>;
+
+    fn mul(self, _rhs: T) -> Matrix<T> {
+
+        let data: Vec<T> = self.data.iter()
+                                    .map(|x| *x * _rhs)
+                                    .collect::<Vec<T>>();
+
+        
+        Matrix { n: self.n, m: self.m, data }
+    }
+
+}
+
+impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Div> ops::Div<T> for Matrix<T> {
+
+    type Output = Matrix<T>;
+
+    fn div(self, _rhs: T) -> Matrix<T> {
+
+        let data: Vec<T> = self.data.iter()
+                                    .map(|x| *x / _rhs)
+                                    .collect::<Vec<T>>();
+
+        
+        Matrix { n: self.n, m: self.m, data }
+    }
+
 }
 
 impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mul<Matrix<T>> for Matrix<T> {
@@ -312,6 +365,75 @@ mod tests {
 
 
         assert_eq!(mat1.transpose().data, comp);
+
+    }
+
+    #[test]
+    fn test_exp() {
+
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mut mat1: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![1_f32.exp(), 2_f32.exp(), 3_f32.exp(),
+                                    4_f32.exp(), 5_f32.exp(), 6_f32.exp()];
+
+        assert_eq!(mat1.exp().data, comp);
+    }
+
+    #[test]
+    fn test_mult_scalar() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![1_f32 * 5_f32, 2_f32 * 5_f32, 3_f32 * 5_f32,
+                                    4_f32 * 5_f32, 5_f32 * 5_f32, 6_f32 * 5_f32];
+
+        assert_eq!((mat1 * 5_f32).data, comp);
+
+    }
+
+    #[test]
+    fn test_div_scalar() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![1_f32 / 5_f32, 2_f32 / 5_f32, 3_f32 / 5_f32,
+                                    4_f32 / 5_f32, 5_f32 / 5_f32, 6_f32 / 5_f32];
+
+        assert_eq!((mat1 / 5_f32).data, comp);
+
+    }
+
+    #[test]
+    fn test_one_over() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![1_f32 / 1_f32, 1_f32/2_f32, 
+                                  1_f32/  3_f32, 1_f32/4_f32,
+                                  1_f32/  5_f32, 1_f32/6_f32];
+
+        assert_eq!(mat1.one_over().data, comp);
 
     }
 
