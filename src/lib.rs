@@ -2,14 +2,17 @@ use num_traits::{Float, Zero};
 use std::{
         convert::From,
         fmt,
-        ops,
-        cmp::max};
+        ops};
 
 #[derive(Clone)]
 pub struct Matrix<T> {
     pub n: usize,
     pub m: usize,
     data: Vec<T> 
+}
+
+pub enum MatrixError {
+    DimensionError
 }
 
 impl<T: Float + Zero + From<f32>> Matrix<T> {
@@ -28,6 +31,19 @@ impl<T: Float + Zero + From<f32>> Matrix<T> {
         mat
     }
 
+    pub fn piece_mult(_lhs: Matrix<T>, _rhs: Matrix<T>) -> Result<Matrix<T>, MatrixError> {
+        if _lhs.data.len() != _rhs.data.len() {
+            return Err(MatrixError::DimensionError);
+        }
+
+        let data = _lhs.data.into_iter().zip(_rhs.data.into_iter())
+                       .map(|(a , b)| a * b)
+                       .collect::<Vec<T>>();
+
+        Ok(Matrix{n:_lhs.n, m:_lhs.m, data})
+
+    }
+
     pub fn get_row(&self, row: usize) -> &[T] {
         &self.data[row * self.m..(row + 1) * self.m]
     }
@@ -40,7 +56,7 @@ impl<T: Float + Zero + From<f32>> Matrix<T> {
                  .collect::<Vec<T>>()
     }
 
-    pub fn transpose(&mut self) -> Matrix<T> {
+    pub fn transpose(&self) -> Matrix<T> {
 
         let data: Vec<Vec<T>> = (0..self.m).map(|x| self.get_col(x))
                                            .collect::<Vec<Vec<T>>>();
@@ -110,6 +126,39 @@ impl<T: Float + Zero + From<f32> + fmt::Display + ops::Add> ops::Add<Matrix<T>> 
     }
 }
 
+impl<T: Float + Zero + From<f32> + fmt::Display> ops::Index<usize> for Matrix<T> {
+   
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl<T: Float + Zero + From<f32> + fmt::Display> ops::IndexMut<usize> for Matrix<T> {
+   
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data[index]
+    }
+}
+
+
+impl<T: Float + Zero + From<f32> + fmt::Display + ops::Sub> ops::Sub<Matrix<T>> for Matrix<T> {
+   
+    type Output = Matrix<T>;
+
+    fn sub(self, _rhs: Matrix<T>) -> Matrix<T> {
+        
+       let mut mat: Matrix<_> = self.clone();
+
+       for (idx, item) in mat.data.iter_mut().enumerate() {
+            *item = *item - _rhs.data[idx]; 
+       }
+
+       mat
+    }
+}
+
 impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mul<T> for Matrix<T> {
 
     type Output = Matrix<T>;
@@ -142,6 +191,19 @@ impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Div> ops::Di
 
 }
 
+impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Add> ops::Add<T> for Matrix<T> {
+   
+    type Output = Matrix<T>;
+
+    fn add(self, _rhs: T) -> Matrix<T> {
+        let data = self.data.iter()
+                            .map(|x| *x + _rhs)
+                            .collect::<Vec<T>>();
+        
+        Matrix { n:self.n, m:self.m, data }
+    }
+
+}
 impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mul<Matrix<T>> for Matrix<T> {
    
     type Output = Matrix<T>;
@@ -149,8 +211,8 @@ impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mu
     fn mul(self, _rhs: Matrix<T>) -> Matrix<T> {
         
        let mut mat: Matrix<T> = Matrix::zeros(
-                                              max(_rhs.n, self.n),
-                                              max(self.m, _rhs.m));
+                                              self.n,
+                                              _rhs.m);
 
        for rdx in 0..self.n {
            for cdx in 0.._rhs.m {
@@ -164,7 +226,6 @@ impl<T: Float + Zero + From<f32> + fmt::Display + fmt::Debug + ops::Mul> ops::Mu
                             })
                             .reduce(|acc, x| acc + x)
                             .unwrap();
-                
                 
                     mat.data[rdx * mat.n + cdx] = sum;      
            }
@@ -435,6 +496,66 @@ mod tests {
 
         assert_eq!(mat1.one_over().data, comp);
 
+    }
+
+    #[test]
+    fn test_piece_by_mult() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32,3_f32],
+                                ];
+
+        let data2: &[&[f32]] = &[ &[1_f32], &[2_f32], &[3_f32]];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+        let mat2: Matrix<f32> = Matrix::from(data2);
+
+        let comp: Vec<f32> = vec![1_f32, 4_f32, 9_f32];
+        
+        let res = match Matrix::piece_mult(mat1, mat2) {
+            Ok(matrix) => matrix,
+            Err(_) => panic!("err") 
+        };
+
+        assert_eq!(res.data, comp);
+
+    }
+
+    #[test]
+    fn test_matrix_addition() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+        let mat2: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![2_f32, 4_f32,
+                                  6_f32, 8_f32,
+                                  10_f32, 12_f32];
+
+        assert_eq!(
+                (mat1 + mat2).data,
+                comp);
+    }
+
+    #[test]
+    fn test_matrix_subtraction() {
+        let data1: &[&[f32]] = &[
+                                    &[1_f32, 2_f32],
+                                    &[3_f32, 4_f32],
+                                    &[5_f32, 6_f32],
+                                ];
+
+        let mat1: Matrix<f32> = Matrix::from(data1);
+        let mat2: Matrix<f32> = Matrix::from(data1);
+
+        let comp: Vec<f32> = vec![0_f32; 6];
+
+        assert_eq!(
+                (mat1 - mat2).data,
+                comp);
     }
 
 }
